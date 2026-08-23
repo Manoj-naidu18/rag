@@ -161,8 +161,13 @@ def find_date(text: str) -> date | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Answer one Calder County policy question.")
-    parser.add_argument("question", nargs="+", help="the policy question")
+    parser.add_argument("question", nargs="*", help="the policy question")
     args = parser.parse_args()
+    if not args.question:
+        typed_question = input("Policy question: ").strip()
+        if not typed_question:
+            parser.error("enter a policy question")
+        args.question = typed_question.split()
     policy = Policy(ROOT / "policy-manual.md")
     print(Assistant(policy).answer(" ".join(args.question)))
 
