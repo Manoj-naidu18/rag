@@ -1,108 +1,134 @@
-# Grounded Answer
+# BriteSpark
 
-This project is a command-line assistant for the Calder County Household Support Program.
+BriteSpark is a lightweight policy clause retrieval prototype for the Calder County Household Support Program manual. It converts the policy manual into individual, citation-aware clauses and retrieves the clauses most relevant to a user's natural-language question.
 
-It does three important things:
+## How It Works
 
-1. Answers policy questions from the supplied policy manual.
-2. Shows the exact clauses used for each answer.
-3. Refuses to guess when the manual does not answer the question.
+1. `code/read.py` reads `data/policy.md`.
+2. Bold clause identifiers such as `**2.4.1**` are parsed into structured records.
+3. The records are written to `data/clauses.json`.
+4. `code/search.py` selects the clauses in force for the relevant date, creates vector embeddings with `all-MiniLM-L6-v2`, and indexes them with FAISS.
+5. A question is converted into a vector and the three closest policy clauses are displayed with their citations and distances.
 
-The project also applies Amendment No. 2026-01. The amendment starts on 1 March 2026.
+## Project Structure
+
+```text
+.
+├── code/
+│   ├── assistant.py    # Answers, refuses, or flags a contradiction
+│   ├── read.py         # Extracts clauses from the policy manual
+│   └── search.py       # Builds the clause index and runs searches
+├── data/
+│   ├── clauses.json    # Generated clause data
+│   ├── policy.md       # Source policy manual
+│   └── Amendment No. 2026-01.md
+├── tests/
+│   └── test_questions.py   # 10-question test set with pass/fail
+└── requirements.txt    # Python dependencies
+```
+
+## The Assistant
+
+`code/search.py` only finds the nearest clauses. `code/assistant.py` decides what to do with them and gives one of three outcomes:
+
+- **Answer** — the manual covers the question, so it returns the governing clause and its citation.
+- **Refuse** — the manual does not cover the question (or points at a rule that does not exist), so it says so and directs the user to a supervisor.
+- **Contradiction** — the manual says two different things, so it shows both clauses instead of silently choosing one.
+
+See `DECISIONS.md` for exactly where the line between answering and refusing is set, and why.
 
 ## Requirements
 
-- Python 3.10 or newer
-- No extra Python packages
-- No internet connection
+- Python 3.9 or newer
+- Dependencies listed in `requirements.txt`
 
-## Run the assistant
+## Setup
 
-Open PowerShell in this folder and run:
+From the project root:
 
-```powershell
-python assistant.py "What is the earnings disregard for a determination in April 2026?"
+```bash
+python -m venv .venv
 ```
 
-Example output:
+Activate the virtual environment:
+
+**Windows PowerShell**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**macOS/Linux**
+
+```bash
+source .venv/bin/activate
+```
+
+Install the dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+The first search run downloads the `all-MiniLM-L6-v2` sentence-transformer model if it is not already available locally.
+
+## Usage
+
+Run these commands from the `code` directory because the scripts use paths relative to that directory.
+
+### Build the clause file
+
+```bash
+cd code
+python read.py
+```
+
+This regenerates `data/clauses.json` from `data/policy.md` and reports the number of clauses extracted.
+
+### Search the policy
+
+```bash
+python search.py
+```
+
+Enter a natural-language question and the claim date when prompted, for example:
 
 ```text
-Answer: The household earnings disregard is $175 per month, applied once per household rather than once per earner.
-Sources: §6.4.1(a), §6.4.2, Amendment No. 2026-01 §1.1, Amendment No. 2026-01 §5.1
+What is the resource limit for a household?
 ```
 
-You can also run `assistant.py` without a question:
+Use ISO format (`YYYY-MM-DD`) for the claim date. For reporting questions, also enter the date on which the change occurred; press Enter when no change date applies. This matters because the amendment's reporting transition is based on the change date, while its other changes are based on the determination date.
 
-```powershell
+The search prints the most relevant clauses, their policy citations, and FAISS distances. Lower distances indicate closer matches within the date-specific index. The function can also be called from Python as `search(question, claim_date, change_date=None, number=3)`.
+
+### Run the assistant (answer / refuse / contradiction)
+
+```bash
+cd code
 python assistant.py
 ```
 
-The program will ask:
+Enter a question, a claim date, and (for reporting questions) the date the change occurred. The assistant replies with one of the three outcomes above.
 
-```text
-Policy question:
+### Run the test set
+
+From the project root:
+
+```bash
+python tests/test_questions.py
 ```
 
-This makes the file work with the VS Code Run button as well as with PowerShell arguments.
+This runs 10 questions — including ones the assistant is expected to refuse — and prints PASS/FAIL for each.
 
-## Run the tests
+## Updating the Policy
 
-Run:
+1. Edit `data/policy.md` and preserve the clause format `**part.section.paragraph**`.
+2. Keep formal amendments in `data/` and record their effective-date rules in the temporal selection layer.
+3. From `code/`, run `python read.py` to regenerate `data/clauses.json`.
+4. Run `python search.py` and verify representative questions against both historical and current dates.
 
-```powershell
-python evaluate.py
-```
+The policy manual is fictional and includes its own statement that statute or regulation takes precedence where applicable. Search results should therefore be treated as retrieval assistance, not as a substitute for authoritative legal or administrative review.
 
-The test set contains twelve questions. It checks old and new dates, updated values, normal answers, a refusal case, the full-time student gap, and the reporting-deadline conflict. The current result is:
+## Current Status
 
-```text
-12/12 checks passed
-```
-
-## Date handling
-
-The amendment changed different rules in different ways:
-
-- Reporting deadlines use the date when the change happened.
-- Earnings disregards, income thresholds, and sanctions use the determination date.
-- A question about a date before 1 March 2026 uses the old rule.
-- A question about a date on or after 1 March 2026 uses the amended rule.
-
-The original manual is kept unchanged. Amendment citations are shown together with the original clause citations so the answer can be checked.
-
-## Refusal behavior
-
-The manual is the only source of policy. If it does not cover a question, the assistant does not use general knowledge or make up an answer.
-
-For example:
-
-```powershell
-python assistant.py "Does the program pay childcare?"
-```
-
-The result is a refusal with a suggestion to ask a caseworker or supervisor. This is safer than giving an answer that sounds certain but is not supported by the manual.
-
-Some questions look covered but are not. For a full-time student the assistant does not give a generic refusal; it shows the trail it followed:
-
-```powershell
-python assistant.py "How is a full-time student's award calculated?"
-```
-
-It reports that §1.4.6 only defines the term, §3.2.3 and §5.2.3 say full-time education is "addressed separately", and §7.1.3 sends the case to §5.4 - but §5.4 is about a care allowance, not students. The pointer leads to the wrong topic, so the manual does not settle it, and the case goes to a supervisor.
-
-## Conflicts in the manual
-
-The manual is internally inconsistent about the reporting deadline for a change before 1 March 2026. §4.3.2 says 10 calendar days; §9.1.4 refers to "the 30 calendar days required under §4.3". The assistant does not pick one silently - it shows both figures, notes that Amendment No. 2026-01 confirms they "did not previously correspond" and aligns them to 14 days from 1 March 2026, and points to §4.3.2 as the operative rule while flagging the conflict.
-
-## Project files
-
-- `assistant.py` - reads the manual and answers supported questions
-- `evaluate.py` - runs the ten-question test set
-- `policy-manual.md` - the original policy manual
-- `Amendment No. 2026-01.md` - the later policy amendment
-- `DECISIONS.md` - design choices and the answer/refusal boundary
-- `AI-USAGE.md` - a record of how AI assistance was used
-
-## Clean run
-
-The project can be copied or cloned into a new folder and run using only the commands above. It does not depend on files outside this project.
+The clause reader (`read.py`), the date-aware clause search (`search.py`), and the answer/refuse/contradiction assistant (`assistant.py`) are implemented, with a 10-question test set in `tests/`.
