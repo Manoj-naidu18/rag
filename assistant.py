@@ -49,6 +49,9 @@ class Assistant:
         if any(word in lowered for word in ("childcare", "child care", "medical bill", "rent", "legal aid")):
             return refuse("The manual does not say that the Program pays that particular cost. Ask a caseworker at a district office whether another program applies.")
 
+        if any(word in lowered for word in ("student", "full-time education", "full time education", "full-time student")):
+            return self._student_refusal()
+
         if "sanction" in lowered:
             return self._sanction_answer(asked_date)
         if any(word in lowered for word in ("report", "reporting", "change of circumstance", "change in circumstances")):
@@ -73,12 +76,23 @@ class Assistant:
     def _reporting_answer(self, change_date: date) -> str:
         if change_date >= AMENDMENT_DATE:
             return answer(
-                "Report the change within 14 calendar days of it happening, or within 14 calendar days of becoming aware of it, whichever is later. The report can be made in person, by telephone, in writing, or online.",
+                "Report the change within 14 calendar days of it happening, or within 14 calendar days of becoming aware of it, whichever is later. The report can be made in person, by telephone, in writing, or online. Amendment No. 2026-01 aligned the two figures that previously conflicted, so for a change on or after 1 March 2026 the deadline is settled at 14 days.",
                 ["§4.3.2", "§4.3.3", "Amendment No. 2026-01 §2.1", "Amendment No. 2026-01 §5.2"],
             )
         return answer(
-            "For a change occurring before 1 March 2026, the reporting period was 10 calendar days from the change or from becoming aware of it, whichever was later.",
-            ["§4.3.2", "Amendment No. 2026-01 §5.2"],
+            "The manual conflicts with itself for a change before 1 March 2026, so both figures are shown. §4.3.2 sets the reporting period at 10 calendar days from the change, or from becoming aware of it, whichever is later. But §9.1.4 refers to \"the 30 calendar days required under §4.3\", which does not match the 10 days in §4.3.2. Amendment No. 2026-01 confirms the two \"did not previously correspond\" and aligns them to 14 days for changes on or after 1 March 2026. The operative rule is the 10 days in §4.3.2; flag the §9.1.4 conflict to a supervisor rather than treating either number as settled.",
+            ["§4.3.2", "§9.1.4", "Amendment No. 2026-01 §2.2", "Amendment No. 2026-01 §5.2"],
+        )
+
+    def _student_refusal(self) -> str:
+        return refuse_with_sources(
+            "The manual never states the rule for a full-time student, so I will not guess. "
+            "§1.4.6 only defines the term. §3.2.3 and §5.2.3 both say full-time education is "
+            "\"addressed separately\". §7.1.3 sends the student case to §5.4 for the award "
+            "calculation, but §5.4 is \"Households including a person in receipt of a care "
+            "allowance\" - it is not about students at all. The reference leads to the wrong "
+            "topic, so the manual does not settle this. Refer the case to a supervisor.",
+            ["§1.4.6", "§3.2.3", "§5.2.3", "§7.1.3", "§5.4"],
         )
 
     def _overpayment_answer(self, change_date: date) -> str:
@@ -131,6 +145,11 @@ def answer(text: str, citations: list[str]) -> str:
 
 def refuse(text: str) -> str:
     return f"Cannot answer from the manual: {text}\nSources: none"
+
+
+def refuse_with_sources(text: str, citations: list[str]) -> str:
+    citation_text = ", ".join(citations)
+    return f"Cannot answer from the manual: {text}\nSources checked: {citation_text}"
 
 
 def find_date(text: str) -> date | None:

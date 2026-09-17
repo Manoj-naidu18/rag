@@ -14,6 +14,8 @@ TESTS = [
     ("Evidence alternative", "Can the Department accept an alternative document?", "alternative evidence", True),
     ("Covered application", "How can I make an application?", "online", True),
     ("Unsupported cost", "Does the program pay childcare?", "Cannot answer from the manual", True),
+    ("Student gap refusal", "How is a full-time student's award calculated?", "care allowance", True),
+    ("Reporting conflict shown", "How long do I have to report a change that happened in February 2026?", "§9.1.4", True),
 ]
 
 

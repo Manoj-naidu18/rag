@@ -53,10 +53,10 @@ Run:
 python evaluate.py
 ```
 
-The test set contains ten questions. It checks old and new dates, updated values, normal answers, and a refusal case. The current result is:
+The test set contains twelve questions. It checks old and new dates, updated values, normal answers, a refusal case, the full-time student gap, and the reporting-deadline conflict. The current result is:
 
 ```text
-10/10 checks passed
+12/12 checks passed
 ```
 
 ## Date handling
@@ -81,6 +81,18 @@ python assistant.py "Does the program pay childcare?"
 ```
 
 The result is a refusal with a suggestion to ask a caseworker or supervisor. This is safer than giving an answer that sounds certain but is not supported by the manual.
+
+Some questions look covered but are not. For a full-time student the assistant does not give a generic refusal; it shows the trail it followed:
+
+```powershell
+python assistant.py "How is a full-time student's award calculated?"
+```
+
+It reports that §1.4.6 only defines the term, §3.2.3 and §5.2.3 say full-time education is "addressed separately", and §7.1.3 sends the case to §5.4 - but §5.4 is about a care allowance, not students. The pointer leads to the wrong topic, so the manual does not settle it, and the case goes to a supervisor.
+
+## Conflicts in the manual
+
+The manual is internally inconsistent about the reporting deadline for a change before 1 March 2026. §4.3.2 says 10 calendar days; §9.1.4 refers to "the 30 calendar days required under §4.3". The assistant does not pick one silently - it shows both figures, notes that Amendment No. 2026-01 confirms they "did not previously correspond" and aligns them to 14 days from 1 March 2026, and points to §4.3.2 as the operative rule while flagging the conflict.
 
 ## Project files
 
